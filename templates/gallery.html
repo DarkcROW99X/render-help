@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Galleria Screenshot Remoti</title>
+    <style>
+        body { font-family: sans-serif; background: #111; color: #eee; text-align: center; }
+        img { width: 80%; margin: 10px auto; border: 2px solid #444; }
+        h1 { color: #0f0; }
+    </style>
+</head>
+<body>
+    <h1>🖼️ Galleria Screenshot Remoti</h1>
+    {% for img in images %}
+        <div>
+            <p>{{ img }}</p>
+            <img src="/static/{{ img }}" alt="screenshot">
+        </div>
+    {% endfor %}
+</body>
+</html>
