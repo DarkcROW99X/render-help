@@ -36,6 +36,21 @@ async def get_gallery(request: Request):
     )
     return templates.TemplateResponse("gallery.html", {"request": request, "images": images})
 
+current_command = ""
+
+@app.post("/set-command")
+async def set_command(command: str = Form(...)):
+    global current_command
+    current_command = command.strip().lower()
+    return {"status": "ok", "command": current_command}
+
+@app.get("/command")
+async def get_command():
+    global current_command
+    cmd = current_command
+    current_command = ""  # cancella il comando dopo la lettura (one-shot)
+    return cmd
+
 
 @app.get("/", response_class=HTMLResponse)
 async def root():
