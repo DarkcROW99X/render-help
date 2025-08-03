@@ -23,18 +23,17 @@ enable_image_upload = True
 
 
 @app.post("/upload-image")
-async def upload_image(client_id: str = Form(...), file: UploadFile = File(...)):
-    if not enable_image_upload:
-        return {"status": "image upload disabled"}
+async def upload_image(client_id: str = Query(...), file: UploadFile = File(...)):
+    content = await file.read()
 
-    path = f"static/{client_id}"
-    os.makedirs(path, exist_ok=True)
+    client_dir = f"static/{client_id}"
+    os.makedirs(client_dir, exist_ok=True)
 
-    filepath = os.path.join(path, "latest.jpg")
-    with open(filepath, "wb") as f:
-        f.write(await file.read())
-    
+    with open(f"{client_dir}/latest.jpg", "wb") as f:
+        f.write(content)
+
     return {"status": "ok"}
+
 
 
 
