@@ -26,3 +26,17 @@ async def upload_image(file: UploadFile = File(...)):
 @app.get("/viewer", response_class=HTMLResponse)
 async def get_viewer(request: Request):
     return templates.TemplateResponse("viewer.html", {"request": request})
+
+
+@app.get("/gallery", response_class=HTMLResponse)
+async def get_gallery(request: Request):
+    images = sorted(
+        [f for f in os.listdir("static") if f.endswith(".jpg") and f != "latest.jpg"],
+        reverse=True
+    )
+    return templates.TemplateResponse("gallery.html", {"request": request, "images": images})
+
+
+@app.get("/", response_class=HTMLResponse)
+async def root():
+    return '<h2>✅ Server attivo. Vai su <a href="/viewer">/viewer</a> o <a href="/gallery">/gallery</a></h2>'
