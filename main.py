@@ -14,9 +14,14 @@ templates = Jinja2Templates(directory="templates")
 
 @app.post("/upload-image")
 async def upload_image(file: UploadFile = File(...)):
-    with open("static/latest.jpg", "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+    content = await file.read()
+    print(f"Ricevuto file: {file.filename}, size: {len(content)} bytes")
+
+    with open("static/latest.jpg", "wb") as f:
+        f.write(content)
+    
     return {"status": "ok"}
+
 
 @app.get("/viewer", response_class=HTMLResponse)
 async def get_viewer(request: Request):
