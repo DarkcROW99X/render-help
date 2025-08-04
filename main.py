@@ -22,11 +22,12 @@ clients_commands: Dict[str, str] = {}
 clients_outputs: Dict[str, str] = {}
 enable_image_upload = True
 
-
 @app.post("/upload-image")
 async def upload_image(client_id: str = Query(...), file: UploadFile = File(...)):
+    global enable_image_upload
     if not enable_image_upload:
-        return {"status": "disabled"}  # ✅ blocca ricezione se disattivato
+        print(f"[UPLOAD BLOCCATO] Upload disabilitato per {client_id}")
+        return {"status": "upload_disabled"}
 
     if client_id not in registered_clients:
         registered_clients.add(client_id)
@@ -39,6 +40,7 @@ async def upload_image(client_id: str = Query(...), file: UploadFile = File(...)
         f.write(content)
 
     return {"status": "ok"}
+
 
 
 
