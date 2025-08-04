@@ -125,7 +125,7 @@ async def get_result(client_id: str = Query(...)):
 # --------------------------
 @app.get("/admin", response_class=HTMLResponse)
 async def admin_page():
-    client_list_html = "".join([f'<option value="{cid}">{cid}</option>' for cid in registered_clients.keys()])
+    client_list_html = "".join([f'<option value="{cid}">{cid}</option>' for cid in registered_clients])
     status_text = "🟢 ATTIVO" if enable_image_upload else "🔴 DISATTIVO"
 
     return f"""
